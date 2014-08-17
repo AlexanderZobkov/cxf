@@ -16,11 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.cxf.rs.security.oauth2.jwe;
+package org.apache.cxf.interceptor.security.callback;
 
+import javax.security.auth.callback.CallbackHandler;
 
+import org.apache.cxf.configuration.security.AuthorizationPolicy;
+import org.apache.cxf.interceptor.security.NamePasswordCallbackHandler;
+import org.apache.cxf.message.Message;
 
-public interface JweDecryption {
-    JweDecryptionOutput decrypt(String jweContent);
-    byte[] decrypt(JweCompactConsumer consumer);
+public class CallbackHandlerProviderAuthPol implements CallbackHandlerProvider {
+
+    @Override
+    public CallbackHandler create(Message message) {
+        AuthorizationPolicy policy = message.get(AuthorizationPolicy.class);
+        if (policy == null) {
+            return null;
+        }
+        return new NamePasswordCallbackHandler(policy.getUserName(), policy.getPassword());
+    }
+
 }

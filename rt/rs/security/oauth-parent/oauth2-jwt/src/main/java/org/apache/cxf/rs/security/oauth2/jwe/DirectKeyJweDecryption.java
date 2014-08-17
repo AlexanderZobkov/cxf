@@ -23,7 +23,6 @@ import java.security.Key;
 import org.apache.cxf.rs.security.oauth2.jwt.JwtHeadersReader;
 
 public class DirectKeyJweDecryption extends AbstractJweDecryption {
-    private byte[] contentDecryptionKey;
     public DirectKeyJweDecryption(Key contentDecryptionKey) {    
         this(contentDecryptionKey, null);
     }
@@ -32,15 +31,15 @@ public class DirectKeyJweDecryption extends AbstractJweDecryption {
     }
     public DirectKeyJweDecryption(Key contentDecryptionKey, JweCryptoProperties props, 
                                   JwtHeadersReader reader) {    
-        super(props, reader);
-        this.contentDecryptionKey = contentDecryptionKey.getEncoded();
+        this(contentDecryptionKey, props, reader,
+             new AesGcmContentDecryptionAlgorithm());
     }
-    @Override
-    protected byte[] getContentEncryptionKey(JweCompactConsumer consumer) {
-        byte[] encryptedCEK = getEncryptedContentEncryptionKey(consumer);
-        if (encryptedCEK != null && encryptedCEK.length > 0) {
-            throw new SecurityException();
-        }
-        return contentDecryptionKey;
+    public DirectKeyJweDecryption(Key contentDecryptionKey, 
+                                  JweCryptoProperties props, 
+                                  JwtHeadersReader reader,
+                                  ContentDecryptionAlgorithm cipherProps) {    
+        super(props, reader, new DirectKeyDecryptionAlgorithm(contentDecryptionKey),
+              cipherProps);
     }
+    
 }

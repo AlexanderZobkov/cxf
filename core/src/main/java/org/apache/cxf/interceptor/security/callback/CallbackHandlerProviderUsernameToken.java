@@ -16,14 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.cxf.rs.security.oauth2.jwe;
+package org.apache.cxf.interceptor.security.callback;
 
+import javax.security.auth.callback.CallbackHandler;
 
-public class DirectKeyAlgorithm implements KeyEncryptionAlgorithm {
-    public byte[] getEncryptedContentEncryptionKey(JweHeaders headers, byte[] theCek) {
-        if (headers.getKeyEncryptionAlgorithm() != null) {
-            throw new SecurityException();
+import org.apache.cxf.common.security.SecurityToken;
+import org.apache.cxf.common.security.UsernameToken;
+import org.apache.cxf.interceptor.security.NamePasswordCallbackHandler;
+import org.apache.cxf.message.Message;
+
+public class CallbackHandlerProviderUsernameToken implements CallbackHandlerProvider {
+
+    @Override
+    public CallbackHandler create(Message message) {
+        SecurityToken token = message.get(SecurityToken.class);
+        if (!(token instanceof UsernameToken)) {
+            return null;
         }
-        return new byte[0];
+        UsernameToken ut = (UsernameToken)token;
+        return new NamePasswordCallbackHandler(ut.getName(), ut.getPassword());
     }
+
 }

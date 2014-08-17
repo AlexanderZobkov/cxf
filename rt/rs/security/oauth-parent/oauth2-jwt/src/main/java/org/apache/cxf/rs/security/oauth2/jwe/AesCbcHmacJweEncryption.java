@@ -51,6 +51,12 @@ public class AesCbcHmacJweEncryption extends AbstractJweEncryption {
         AES_CEK_SIZE_MAP.put(Algorithm.A192CBC_HS384.getJwtName(), 48);
         AES_CEK_SIZE_MAP.put(Algorithm.A256CBC_HS512.getJwtName(), 64);
     }
+    public AesCbcHmacJweEncryption(String keyAlgo, 
+                                   String celAlgoJwt, 
+                                   KeyEncryptionAlgorithm keyEncryptionAlgorithm) {
+        this(new JweHeaders(keyAlgo, validateCekAlgorithm(celAlgoJwt)), 
+             null, null, keyEncryptionAlgorithm);
+    }
     public AesCbcHmacJweEncryption(JweHeaders headers, 
                                    KeyEncryptionAlgorithm keyEncryptionAlgorithm) {
         this(headers, null, null, keyEncryptionAlgorithm);
@@ -65,30 +71,31 @@ public class AesCbcHmacJweEncryption extends AbstractJweEncryption {
                                    KeyEncryptionAlgorithm keyEncryptionAlgorithm,
                                    JwtHeadersWriter writer) {
         super(headers, new AesCbcContentEncryptionAlgorithm(cek, iv), keyEncryptionAlgorithm, writer);
-        if (!SUPPORTED_CEK_ALGORITHMS.contains(headers.getContentEncryptionAlgorithm())) {
-            throw new SecurityException();
-        }
+        validateCekAlgorithm(headers.getContentEncryptionAlgorithm());
     }
-    
-    protected byte[] getActualCek(byte[] theCek) {
-        int size = getCekKeySize() / 2;
+    @Override
+    protected byte[] getActualCek(byte[] theCek, String algoJwt) {
+        return doGetActualCek(theCek, algoJwt);
+    }
+    @Override
+    protected int getCekSize(String algoJwt) {
+        return getFullCekKeySize(algoJwt) * 8;
+    }
+    protected static byte[] doGetActualCek(byte[] theCek, String algoJwt) {
+        int size = getFullCekKeySize(algoJwt) / 2;
         byte[] actualCek = new byte[size];
         System.arraycopy(theCek, size, actualCek, 0, size);
         return actualCek;
     }
     
-    protected int getCekKeySize() {
-        return AES_CEK_SIZE_MAP.get(super.getContentEncryptionAlgoJwt());
+    protected static int getFullCekKeySize(String algoJwt) {
+        return AES_CEK_SIZE_MAP.get(algoJwt);
     }
     
     protected JweCompactProducer getJweCompactProducer(JweEncryptionInternal state, byte[] cipher) {
         final MacState macState = getInitializedMacState(state);
-        
         macState.mac.update(cipher);
-        macState.mac.update(macState.al);
-        byte[] sig = macState.mac.doFinal();
-        byte[] authTag = getTagFromSignature(sig);
-        
+        byte[] authTag = signAndGetTag(macState);
         return new JweCompactProducer(macState.headersJson,
                                       state.jweContentEncryptionKey,
                                       state.theIv,
@@ -96,28 +103,38 @@ public class AesCbcHmacJweEncryption extends AbstractJweEncryption {
                                       authTag);
     }
     
-    private byte[] getTagFromSignature(byte[] sig) {
-        int authTagLen = getAuthTagLen() / 8;
+    protected static byte[] signAndGetTag(MacState macState) {
+        macState.mac.update(macState.al);
+        byte[] sig = macState.mac.doFinal();
+        
+        int authTagLen = DEFAULT_AUTH_TAG_LENGTH / 8;
         byte[] authTag = new byte[authTagLen];
         System.arraycopy(sig, 0, authTag, 0, authTagLen);
         return authTag;
     }
-    
     private MacState getInitializedMacState(final JweEncryptionInternal state) {
-        int size = getCekKeySize() / 2;
+        String headersJson = getJwtHeadersWriter().headersToJson(state.theHeaders);
+        return getInitializedMacState(state.secretKey, state.theIv, state.theHeaders, headersJson);
+    }
+    protected static MacState getInitializedMacState(byte[] secretKey,
+                                                     byte[] theIv,
+                                                     JweHeaders theHeaders, 
+                                                     String headersJson) {
+        String algoJwt = theHeaders.getContentEncryptionAlgorithm();
+        int size = getFullCekKeySize(algoJwt) / 2;
         byte[] macKey = new byte[size];
-        System.arraycopy(state.secretKey, 0, macKey, 0, size);
+        System.arraycopy(secretKey, 0, macKey, 0, size);
         
-        String hmacAlgoJava = AES_HMAC_MAP.get(super.getContentEncryptionAlgoJwt());
+        String hmacAlgoJava = AES_HMAC_MAP.get(algoJwt);
         Mac mac = HmacUtils.getInitializedMac(macKey, hmacAlgoJava, null);
         
-        String headersJson = getJwtHeadersWriter().headersToJson(state.theHeaders);
+        
         byte[] aad = JweHeaders.toCipherAdditionalAuthData(headersJson);
         ByteBuffer buf = ByteBuffer.allocate(8);
         final byte[] al = buf.putInt(0).putInt(aad.length * 8).array();
         
         mac.update(aad);
-        mac.update(state.theIv);
+        mac.update(theIv);
         MacState macState = new MacState();
         macState.mac = mac;
         macState.al = al;
@@ -138,9 +155,7 @@ public class AesCbcHmacJweEncryption extends AbstractJweEncryption {
 
             @Override
             public byte[] getTag() {
-                macState.mac.update(macState.al);
-                byte[] sig = macState.mac.doFinal();
-                return getTagFromSignature(sig);
+                return signAndGetTag(macState);
             }
             
         };
@@ -159,14 +174,21 @@ public class AesCbcHmacJweEncryption extends AbstractJweEncryption {
             return new IvParameterSpec(theIv);
         }
         @Override
-        public byte[] getAAD(JweHeaders theHeaders, JwtHeadersWriter writer) {
+        public byte[] getAdditionalAuthenticationData(String headersJson) {
             return null;
         }
     }
     
-    private static class MacState {
-        private Mac mac;
+    protected static class MacState {
+        protected Mac mac;
         private byte[] al;
         private String headersJson;
+    }
+    
+    private static String validateCekAlgorithm(String cekAlgo) {
+        if (!SUPPORTED_CEK_ALGORITHMS.contains(cekAlgo)) {
+            throw new SecurityException();
+        }
+        return cekAlgo;
     }
 }

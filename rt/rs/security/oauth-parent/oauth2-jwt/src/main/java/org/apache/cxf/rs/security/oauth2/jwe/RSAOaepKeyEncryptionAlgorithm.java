@@ -25,20 +25,20 @@ import java.util.Set;
 
 import org.apache.cxf.rs.security.oauth2.jwt.Algorithm;
 
-public class RSAOaepKeyEncryption extends AbstractWrapKeyAlgorithm {
+public class RSAOaepKeyEncryptionAlgorithm extends AbstractWrapKeyEncryptionAlgorithm {
     private static final Set<String> SUPPORTED_ALGORITHMS = new HashSet<String>(
         Arrays.asList(Algorithm.RSA_OAEP.getJwtName(),
                       Algorithm.RSA_OAEP_256.getJwtName()));
-    public RSAOaepKeyEncryption(RSAPublicKey publicKey) {
+    public RSAOaepKeyEncryptionAlgorithm(RSAPublicKey publicKey) {
         this(publicKey, null, true);
     }
-    public RSAOaepKeyEncryption(RSAPublicKey publicKey, boolean wrap) {
+    public RSAOaepKeyEncryptionAlgorithm(RSAPublicKey publicKey, boolean wrap) {
         this(publicKey, null, wrap);
     }
-    public RSAOaepKeyEncryption(RSAPublicKey publicKey, String jweAlgo) {
+    public RSAOaepKeyEncryptionAlgorithm(RSAPublicKey publicKey, String jweAlgo) {
         this(publicKey, jweAlgo, true);
     }
-    public RSAOaepKeyEncryption(RSAPublicKey publicKey, String jweAlgo, boolean wrap) {
+    public RSAOaepKeyEncryptionAlgorithm(RSAPublicKey publicKey, String jweAlgo, boolean wrap) {
         super(publicKey, jweAlgo, wrap, SUPPORTED_ALGORITHMS);
     }
     

@@ -24,7 +24,7 @@ import java.util.List;
 
 import javax.ws.rs.ext.ParamConverterProvider;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.cxf.common.util.StringUtils;
 import org.apache.cxf.jaxrs.ext.search.tika.TikaContentExtractor.TikaContent;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.DoubleField;
@@ -192,8 +192,9 @@ public class TikaLuceneContentExtractor {
             }
         }
         
-        if (!StringUtils.isBlank(documentMetadata.getSource())) {
-            document.add(new StringField("source", documentMetadata.getSource(), Store.YES));
+        if (!StringUtils.isEmpty(documentMetadata.getSource())) {
+            document.add(new StringField(documentMetadata.getSourceFieldName(), 
+                documentMetadata.getSource(), Store.YES));
         }
         
         return document;
