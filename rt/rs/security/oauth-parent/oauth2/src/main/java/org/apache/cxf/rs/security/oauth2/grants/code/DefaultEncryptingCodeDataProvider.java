@@ -16,25 +16,49 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.cxf.rs.security.oauth2.grants.code;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
-import org.apache.cxf.rs.security.oauth2.provider.AbstractOAuthDataProvider;
+import javax.crypto.SecretKey;
+
+import org.apache.cxf.rs.security.oauth2.provider.DefaultEncryptingOAuthDataProvider;
 import org.apache.cxf.rs.security.oauth2.provider.OAuthServiceException;
 import org.apache.cxf.rs.security.oauth2.utils.OAuthUtils;
+import org.apache.cxf.rs.security.oauth2.utils.crypto.KeyProperties;
+import org.apache.cxf.rs.security.oauth2.utils.crypto.ModelEncryptionSupport;
 
-
-/**
- * Abstract AuthorizationCodeDataProvider implementation 
- */
-public abstract class AbstractAuthorizationCodeDataProvider 
-    extends AbstractOAuthDataProvider implements AuthorizationCodeDataProvider {
-
-    private long grantLifetime = 3600L;
-    
+public class DefaultEncryptingCodeDataProvider extends DefaultEncryptingOAuthDataProvider 
+    implements AuthorizationCodeDataProvider {
+    private long grantLifetime;
+    private Set<String> grants = Collections.synchronizedSet(new HashSet<String>());
+    public DefaultEncryptingCodeDataProvider(String algo, int keySize) {
+        super(algo, keySize);
+    }
+    public DefaultEncryptingCodeDataProvider(KeyProperties props) {
+        super(props);
+    }
+    public DefaultEncryptingCodeDataProvider(SecretKey key) {
+        super(key);
+    }
+    @Override
     public ServerAuthorizationCodeGrant createCodeGrant(AuthorizationCodeRegistration reg)
+        throws OAuthServiceException {
+        ServerAuthorizationCodeGrant grant = doCreateCodeGrant(reg);
+        saveAuthorizationGrant(grant);
+        return grant;
+    }
+
+    @Override
+    public ServerAuthorizationCodeGrant removeCodeGrant(String code) throws OAuthServiceException {
+        grants.remove(code);
+        return ModelEncryptionSupport.decryptCodeGrant(this, code, key);
+    }
+    
+    protected ServerAuthorizationCodeGrant doCreateCodeGrant(AuthorizationCodeRegistration reg)
         throws OAuthServiceException {
         ServerAuthorizationCodeGrant grant = 
             new ServerAuthorizationCodeGrant(reg.getClient(), getCode(reg), getGrantLifetime(), getIssuedAt());
@@ -53,7 +77,7 @@ public abstract class AbstractAuthorizationCodeDataProvider
     protected String getCode(AuthorizationCodeRegistration reg) {
         return OAuthUtils.generateRandomTokenKey();
     }
-
+    
     public long getGrantLifetime() {
         return grantLifetime;
     }
@@ -64,5 +88,11 @@ public abstract class AbstractAuthorizationCodeDataProvider
 
     protected long getIssuedAt() {
         return OAuthUtils.getIssuedAt();
+    }
+    
+    protected void saveAuthorizationGrant(ServerAuthorizationCodeGrant grant) { 
+        String encrypted = ModelEncryptionSupport.encryptCodeGrant(grant, key);
+        grant.setCode(encrypted);
+        grants.add(encrypted);
     }
 }

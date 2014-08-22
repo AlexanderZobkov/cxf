@@ -31,6 +31,10 @@
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
     <properties>
+        <cxf.osgi.import>
+	  !com.google.*,
+	  *
+        </cxf.osgi.import>
         <gwt.version>2.6.0</gwt.version>
         <gwt.inject.version>1.5.0</gwt.inject.version>
         <gwt.plugin.version>2.6.0</gwt.plugin.version>
@@ -167,6 +171,11 @@
                           {maven-resources},
                           static-content=${gwt.classes.dir}/static-content
                         </Include-Resource>
+			<Export-Package>
+			  org.apache.cxf.management.web.browser,
+			  org.apache.cxf.management.web.browser*,
+			  org.apache.cxf.management.web.logging.atom*,
+			</Export-Package>
                     </instructions>
                 </configuration>
             </plugin>
